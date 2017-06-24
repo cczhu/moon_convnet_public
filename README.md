@@ -22,7 +22,7 @@ All the code is contained within run_moon_convnet_model.py. All the main paramet
 
 In addition, if you want to iterate over parameters (i.e. run a grid search), look for:
 ########## Parameters to Iterate Over ########## 
-in the run_cross_validation_create_models function. I’ve given a simple example of how to do this in the code. As it currently stands, it will save models for every set of parameters you iterate over. Look for model.save() within the train_and_test_model() function and make sure that the name assigned to each model is unique so that models wont get overwritten as you iterate.
+in the run_models function. I’ve given a simple example of how to do this in the code. As it currently stands, it will save models for every set of parameters you iterate over. Look for model.save() within the train_and_test_model() function and make sure that the name assigned to each model is unique so that models wont get overwritten as you iterate.
 
 # Generating/Analyzing model predictions
 Using rings_analyze_remote.py you can generate model predictions on scinet, and then analyze them on your local system. 

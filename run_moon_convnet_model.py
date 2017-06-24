@@ -256,6 +256,7 @@ def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,save_models,in
     n_filters = [64,64]     #See unet model. Arranging this so that total number of model parameters <~ 10M, otherwise OOM problems
     lmbda = [0,0]           #See unet model. L2 Weight regularization strength (lambda).
     init = ['he_normal', 'he_uniform']  #See unet model. Initialization of weights.
+    ########## Parameters to Iterate Over ##########
 
     #Iterate
     for i in range(N_runs):
