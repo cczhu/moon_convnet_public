@@ -13,7 +13,10 @@ from utils.helper_functions import rescale_and_invcolor
 ##############
 #Main Routine#
 ########################################################################
-def predict_targets(dir,dim,inv_color,rescale,n_pred_samples,offset,models):
+def predict_targets(dir,inv_color,rescale,n_pred_samples,offset,models):
+    #static arguments
+    dim = 256               #image dimensions, assuming square images. Should not change
+    
     #load data
     if n_pred_samples < 50:
         try:
@@ -50,13 +53,12 @@ def predict_targets(dir,dim,inv_color,rescale,n_pred_samples,offset,models):
 if __name__ == '__main__':
     #arguments
     dir = 'dataset'         #location of where test data is. Likely doesn't need to change
-    dim = 256               #image dimensions, assuming square images. Should not change
     inv_color = 1           #use inverse color (*must be same setting as what was used for the model(s)*)
     rescale = 1             #rescale images to increase contrast (*must be same setting as what was used for the model(s)*)
     n_pred_samples = 20     #number of test images to predict on
     offset = 0              #index number to start predictions at (e.g. pred 20 images, start at 15th array element)
     models = ['models/unet_s256_rings_FL3_he_normal_customloss.h5']
     
-    predict_targets(dir,dim,inv_color,rescale,n_pred_samples,offset,models)
+    predict_targets(dir,inv_color,rescale,n_pred_samples,offset,models)
     
 
