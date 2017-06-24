@@ -1,6 +1,6 @@
-##############################################
-#MOON_UNET_S256_RINGS - for public deployment#
-##############################################
+################################################
+#RUN_MOON_CONVNET_MODEL - for public deployment#
+################################################
 #This model:
 #a) uses a custom loss (separately, i.e. *not* differentiable and guiding backpropagation) to assess how well our algorithm is doing, by connecting the predicted circles to the "ground truth" circles
 #b) trained using the original LU78287GT.csv values as the ground truth,
@@ -32,22 +32,7 @@ from keras import __version__ as keras_version
 from keras import backend as K
 K.set_image_dim_ordering('tf')
 
-#######################################
-#rescale and invert color (if desired)#
-########################################################################
-def rescale_and_invcolor(data, inv_color, rescale):
-    #rescaling and inverting images
-    #https://www.mathworks.com/help/vision/ref/contrastadjustment.html
-    #Since maxpooling is used, we want the interesting stuff (craters) to be 1, not 0.
-    #But ignore null background pixels, keep them at 0.
-    for img in data:
-        if inv_color == 1:
-            img[img > 0.] = 1. - img[img > 0.]
-        if rescale == 1:
-            minn, maxx = np.min(img[img>0]), np.max(img[img>0])
-            low, hi = 0.1, 1                                                #low, hi rescaling values
-            img[img>0] = low + (img[img>0] - minn)*(hi - low)/(maxx - minn) #linear re-scaling
-    return data
+from utils.helper_functions import rescale_and_invcolor
 
 ########################
 #custom image generator#
@@ -240,7 +225,7 @@ def train_and_test_model(X_train,Y_train,X_valid,Y_valid,X_test,Y_test,loss_data
 ##############
 #Main Routine#
 ########################################################################
-def run_cross_validation_create_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,save_models,inv_color,rescale):
+def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,save_models,inv_color,rescale):
     #Static arguments
     dim = 256              #image width/height, assuming square images. Shouldn't change
     
@@ -303,4 +288,4 @@ if __name__ == '__main__':
     rescale = 1             #rescale images to increase contrast (still 0-1 normalized)
     
     #run models
-    run_cross_validation_create_models(dir,lr,bs,epochs,n_train,save_models,inv_color,rescale)
+    run_models(dir,lr,bs,epochs,n_train,save_models,inv_color,rescale)
