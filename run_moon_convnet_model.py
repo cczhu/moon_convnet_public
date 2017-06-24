@@ -205,20 +205,21 @@ def train_and_test_model(X_train,Y_train,X_valid,Y_valid,X_test,Y_test,loss_data
         # calcualte custom loss
         print ""
         print "custom loss for epoch %d:"%nb
-        match_csv_arr, templ_csv_arr = [], []
+        match_csv_arr, templ_csv_arr, templ_new_arr = [], [], []
         loss_target = model.predict(loss_data.astype('float32'))
         for i in range(len(loss_data)):
             N_match, N_csv, N_templ, csv_duplicate_flag = template_match_target_to_csv(loss_target[i], loss_csvs[i])
-            match_csv = float(N_match)/float(N_csv)     #recall
-            templ_csv = float(N_templ)/float(N_csv)     #craters detected/craters in csv
-            match_csv_arr.append(match_csv); templ_csv_arr.append(templ_csv)
-            #print match_csv, templ_csv
+            match_csv = float(N_match)/float(N_csv)             #recall
+            templ_csv = float(N_templ)/float(N_csv)             #craters detected/craters in csv
+            templ_new = float(N_templ - N_match)/float(N_templ) #fraction of craters that are new
+            match_csv_arr.append(match_csv); templ_csv_arr.append(templ_csv); templ_new_arr.append(templ_new)
         print "mean and std of N_match/N_csv (recall) = %f, %f"%(np.mean(match_csv_arr), np.std(match_csv_arr))
         print "mean and std of N_template/N_csv = %f, %f"%(np.mean(templ_csv_arr), np.std(templ_csv_arr))
+        print "mean and std of (N_template - N_match)/N_template (fraction of craters that are new) = %f, %f"%(np.mean(templ_new_arr), np.std(templ_new_arr))
         print ""
     
     if save_models == 1:
-        model.save('models/unet_s256_rings_FL%d_%s_public.h5'%(FL,init))
+        model.save('models/run_moon_convnet_model_FL%d_%s.h5'%(FL,init))
 
     return model.evaluate(X_test.astype('float32'), Y_test.astype('float32'))
 
