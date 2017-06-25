@@ -53,7 +53,7 @@ if __name__ == '__main__':
     rescale = 1             #rescale images to increase contrast (**must be same setting as what was used for the model(s)**)
     n_pred_samples = 20     #number of test images to predict on
     offset = 0              #index offset to start predictions at in test array
-    models = ['models/run_moon_convnet_model_FL3_he_normal.h5','run_moon_convnet_model_FL3_he_uniform.h5']
+    models = ['models/run_moon_convnet_model_FL3_he_normal.h5','models/run_moon_convnet_model_FL3_he_uniform.h5']
     
     predict_targets(dir,inv_color,rescale,n_pred_samples,offset,models)
     
