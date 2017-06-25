@@ -26,13 +26,24 @@ custom_loss_csvs.npy	->	Dev_rings_for_loss/
 custom_loss_images.npy	->	Dev_rings_for_loss/
 
 # Running the Code
-All the code is contained within run_moon_convnet_model.py. All the main parameters that you might want to change is at the bottom of the script, under #Arguments, Run#. These parameters have explanations given. 
+All the code is contained within run_moon_convnet_model.py. Before running the code one must first load the following modules/virtual environments:
+module load gcc/6.2.1 
+
+module load cuda/8.0
+
+source /home/k/kristen/kristen/keras_venv_P8.v2/bin/activate 
+
+To execute the code, use the following kind of command: CUDA_VISIBLE_DEVICES=2 nohup python run_moon_convnet_model.py > output.txt &
+
+First make sure that the chosen CUDA device is available by doing 'nvidia-smi'.
+
+Within run_moon_convnet_model.py, all the main parameters that you might want to change is at the bottom of the script, under the __main__ function. These parameters have explanations given. 
 
 In addition, if you want to iterate over parameters (i.e. run a grid search), look for:
 
 ########## Parameters to Iterate Over ########## 
 
-in the run_models function. I’ve given a simple example of how to do this in the code. As it currently stands, it will save models for every set of parameters you iterate over. Look for model.save() within the train_and_test_model() function and make sure that the name assigned to each model is unique so that models wont get overwritten as you iterate.
+I’ve given a simple example of how to do this in the code. These variables must always be lists, even if you only want to run one model. As it currently stands, it will save models for every set of parameters you iterate over. Look for model.save() within the train_and_test_model() function and make sure that the name assigned to each model is unique so that models wont get overwritten as you iterate.
 
 # Generating/Analyzing model predictions
 Once you have created a model, you might want to analyze new predictions. This can be done using rings_analyze_remote.py, which allows you to generate model predictions on scinet, and then analyze them on your local system. 

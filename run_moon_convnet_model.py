@@ -9,14 +9,11 @@
 #This model uses keras version 1.2.2.
 ############################################
 
-import cv2
 import os
 import glob
 import numpy as np
 import pandas as pd
-import random
 from PIL import Image
-from skimage.feature import match_template
 
 from keras.models import Sequential, Model
 from keras.layers.core import Dense, Dropout, Flatten, Reshape
@@ -156,7 +153,7 @@ def train_and_test_model(X_train,Y_train,X_valid,Y_valid,X_test,Y_test,loss_data
 ##############
 #Main Routine#
 ########################################################################
-def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,save_models,inv_color,rescale):
+def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,save_models,inv_color,rescale,filter_length,n_filters,lmbda,init):
     #Static arguments
     dim = 256              #image width/height, assuming square images. Shouldn't change
     
@@ -182,15 +179,8 @@ def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,save_models,in
         test_data = rescale_and_invcolor(test_data, inv_color, rescale)
         loss_data = rescale_and_invcolor(loss_data, inv_color, rescale)
 
-    ########## Parameters to Iterate Over ##########
-    N_runs = 2
-    filter_length = [3,3]   #See unet model. Filter length used.
-    n_filters = [64,64]     #See unet model. Arranging this so that total number of model parameters <~ 10M, otherwise OOM problems
-    lmbda = [0,0]           #See unet model. L2 Weight regularization strength (lambda).
-    init = ['he_normal', 'he_uniform']  #See unet model. Initialization of weights.
-    ########## Parameters to Iterate Over ##########
-
     #Iterate
+    N_runs = np.min((len(filter_length),len(n_filters),len(lmbda),len(init)))
     for i in range(N_runs):
         I = init[i]
         NF = n_filters[i]
@@ -220,5 +210,12 @@ if __name__ == '__main__':
     inv_color = 1           #use inverse color
     rescale = 1             #rescale images to increase contrast (still 0-1 normalized)
     
+    ########## Parameters to Iterate Over ##########
+    filter_length = [3,3]   #See unet model. Filter length used.
+    n_filters = [64,64]     #See unet model. Arranging this so that total number of model parameters <~ 10M, otherwise OOM problems
+    lmbda = [0,0]           #See unet model. L2 Weight regularization strength (lambda).
+    init = ['he_normal', 'he_uniform']  #See unet model. Initialization of weights.
+    ########## Parameters to Iterate Over ##########
+    
     #run models
-    run_models(dir,lr,bs,epochs,n_train,save_models,inv_color,rescale)
+    run_models(dir,lr,bs,epochs,n_train,save_models,inv_color,rescale,filter_length,n_filters,lmbda,init)

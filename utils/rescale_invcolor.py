@@ -1,6 +1,9 @@
 #######################################
 #rescale and invert color (if desired)#
 ########################################################################
+
+import numpy as np
+
 def rescale_and_invcolor(data, inv_color, rescale):
     #rescaling and inverting images
     #https://www.mathworks.com/help/vision/ref/contrastadjustment.html

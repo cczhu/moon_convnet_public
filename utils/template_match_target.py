@@ -1,6 +1,11 @@
 ######################
 #custom loss function#
 ########################################################################
+
+import numpy as np
+from skimage.feature import match_template
+import cv2
+
 def template_match_target_to_csv(target, csv_coords, minrad=2, maxrad=75):
     # minrad/maxrad are the radii to search over during template matching
     # hyperparameters, probably don't need to change
