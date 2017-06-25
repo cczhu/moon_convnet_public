@@ -24,7 +24,8 @@ module load gcc/6.2.1
 module load cuda/8.0  
 source /home/k/kristen/kristen/keras_venv_P8.v2/bin/activate  
 
-To execute the code, use the following kind of command: CUDA_VISIBLE_DEVICES=2 nohup python run_moon_convnet_model.py > output.txt &  
+To execute the code, use the following kind of command:  
+CUDA_VISIBLE_DEVICES=2 nohup python run_moon_convnet_model.py > output.txt &  
 First, make sure that the chosen CUDA device is available by doing 'nvidia-smi'.
 
 Within run_moon_convnet_model.py, all the main parameters that you might want to change is at the bottom of the script, under the \_\_main__ function. These parameters have explanations given. For iterating over parameters (i.e. performing a grid search), in \_\_main__ look for:  
