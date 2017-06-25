@@ -156,7 +156,7 @@ def train_and_test_model(X_train,Y_train,X_valid,Y_valid,X_test,Y_test,loss_data
 ##############
 #Main Routine#
 ########################################################################
-def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,save_models,inv_color,rescale,filter_length,n_filters,lmbda,init):
+def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,inv_color,rescale,save_models,filter_length,n_filters,lmbda,init):
     #Static arguments
     dim = 256              #image width/height, assuming square images. Shouldn't change
     
@@ -207,11 +207,11 @@ if __name__ == '__main__':
     dir = 'dataset'         #location of Train_rings/, Dev_rings/, Test_rings/, Dev_rings_for_loss/ folders. Don't include final '/' in path
     lr = 0.0001             #learning rate
     bs = 32                 #batch size: smaller values = less memory but less accurate gradient estimate
-    epochs = 2              #number of epochs. 1 epoch = forward/back pass through all train data
-    n_train = 320          #number of training samples, needs to be a multiple of batch size. Big memory hog.
-    save_models = 1         #save models
+    epochs = 6              #number of epochs. 1 epoch = forward/back pass through all train data
+    n_train = 6016          #number of training samples, needs to be a multiple of batch size. Big memory hog.
     inv_color = 1           #use inverse color
     rescale = 1             #rescale images to increase contrast (still 0-1 normalized)
+    save_models = 1         #save models
     
     ########## Parameters to Iterate Over ##########
     filter_length = [3,3]   #See unet model. Filter length used.
@@ -221,4 +221,4 @@ if __name__ == '__main__':
     ########## Parameters to Iterate Over ##########
     
     #run models
-    run_models(dir,lr,bs,epochs,n_train,save_models,inv_color,rescale,filter_length,n_filters,lmbda,init)
+    run_models(dir,lr,bs,epochs,n_train,inv_color,rescale,save_models,filter_length,n_filters,lmbda,init)
