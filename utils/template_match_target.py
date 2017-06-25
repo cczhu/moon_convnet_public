@@ -2,6 +2,7 @@
 #custom loss function#
 ########################################################################
 def template_match_target_to_csv(target, csv_coords, minrad=2, maxrad=75):
+    # minrad/maxrad are the radii to search over during template matching
     # hyperparameters, probably don't need to change
     ring_thickness = 2       #thickness of rings for the templates. 2 seems to work well.
     template_thresh = 0.5    #0-1 range, if template matching probability > template_thresh, count as detection
