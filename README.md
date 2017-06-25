@@ -7,7 +7,7 @@ Create a folder on your home directory to house all your data. By default this r
 
 From /scratch/r/rein/silburt/ on scinet, get the following numpy files, and copy them to the following folders within the ‘dir’ directory:
 
-*File*				*Folder within ‘dir’*  
+*File*	->			*Folder within ‘dir’*  
 train_data.npy   	->	Train_rings/  
 train_target.npy   	-> 	Train_rings/  
 dev_data.npy		->	Dev_rings/  
