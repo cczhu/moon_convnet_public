@@ -32,7 +32,9 @@ from keras import __version__ as keras_version
 from keras import backend as K
 K.set_image_dim_ordering('tf')
 
-from utils.helper_functions import rescale_and_invcolor
+#custom functions
+from utils.rescale_invcolor import rescale_and_invcolor
+from utils.template_match_target import template_match_target_to_csv
 
 ########################
 #custom image generator#
@@ -60,78 +62,6 @@ def custom_image_generator(data, target, batch_size=32):
                 t[j] = np.pad(t[j], (npix,), mode='constant')[npix+h[j]:L+h[j]+npix,npix+v[j]:W+v[j]+npix]
                 d[j], t[j] = np.rot90(d[j],r[j]), np.rot90(t[j],r[j])
             yield (d, t)
-
-#######################
-#custom loss functions#
-########################################################################
-def template_match_target_to_csv(target, csv_coords, minrad=2, maxrad=75):
-    # hyperparameters, probably don't need to change
-    ring_thickness = 2       #thickness of rings for the templates. 2 seems to work well.
-    template_thresh = 0.5    #0-1 range, if template matching probability > template_thresh, count as detection
-    target_thresh = 0.1      #0-1 range, pixel values > target_thresh -> 1, pixel values < target_thresh -> 0
-    
-    #Match Threshold (squared)
-    # for template matching, if (x1-x2)^2 + (y1-y2)^2 + (r1-r2)^2 < match_thresh2, remove (x2,y2,r2) circle (it is a duplicate).
-    # for predicted target -> csv matching, if (x1-x2)^2 + (y1-y2)^2 + (r1-r2)^2 < match_thresh2, positive detection
-    match_thresh2 = 20
-    
-    # target - can be predicted or ground truth
-    target[target >= target_thresh] = 1
-    target[target < target_thresh] = 0
-    
-    radii = np.linspace(minrad,maxrad,maxrad-minrad,dtype=int)
-    templ_coords = []        #coordinates extracted from template matching
-    for r in radii:
-        # template
-        n = 2*(r+ring_thickness+1)
-        template = np.zeros((n,n))
-        cv2.circle(template, (r+ring_thickness+1,r+ring_thickness+1), r, 1, ring_thickness)
-        
-        # template match
-        result = match_template(target, template, pad_input=True)   #skimage
-        coords_r = np.asarray(zip(*np.where(result > template_thresh)))
-        
-        # store x,y,r
-        for c in coords_r:
-            templ_coords.append([c[1],c[0],r])
-
-    # remove duplicates from template matching at neighboring radii/locations
-    templ_coords = np.asarray(templ_coords)
-    i, N = 0, len(templ_coords)
-    while i < N:
-        diff = (templ_coords - templ_coords[i])**2
-        diffsum = np.asarray([sum(x) for x in diff])
-        index = (diffsum == 0)|(diffsum > match_thresh2)
-        templ_coords = templ_coords[index]
-        N, i = len(templ_coords), i+1
-
-    # compare template-matched results to "ground truth" csv input data
-    N_match = 0
-    csv_duplicate_flag = 0
-    N_csv, N_templ = len(csv_coords), len(templ_coords)
-    for tc in templ_coords:
-        diff = (csv_coords - tc)**2
-        diffsum = np.asarray([sum(x) for x in diff])
-        index = (diffsum == 0)|(diffsum > match_thresh2)
-        N = len(np.where(index==False)[0])
-        if N > 1:
-            print "multiple matches found in csv file for template matched crater ", tc, " :"
-            print csv_coords[np.where(index==False)]
-            csv_duplicate_flag = 1
-        N_match += N
-        csv_coords = csv_coords[index]
-        if len(csv_coords) == 0:
-            #print "all matches found"
-            break
-    return N_match, N_csv, N_templ, csv_duplicate_flag
-
-def prepare_custom_loss(path):
-    # load data
-    imgs = np.load("%s/custom_loss_images.npy"%path)
-    csvs = np.load("%s/custom_loss_csvs.npy"%path)
-    N_perfect_matches = len(imgs)
-    print "Successfully loaded files locally for custom_loss."
-    return imgs, csvs
 
 ##########################
 #unet model (keras 1.2.2)#
@@ -239,9 +169,10 @@ def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,save_models,in
     test_target=np.load('%s/Test_rings/test_target.npy'%dir)[:n_train_samples]
     print "Successfully loaded files locally."
 
-    #prepare custom loss
+    #prepare images for custom loss
     custom_loss_path = '%s/Dev_rings_for_loss'%dir
-    loss_data, loss_csvs = prepare_custom_loss(custom_loss_path)
+    loss_data = np.load('%s/custom_loss_images.npy'%custom_loss_path)
+    loss_csvs = np.load('%s/custom_loss_csvs.npy'%custom_loss_path)
 
     #Invert image colors and rescale pixel values to increase contrast
     if inv_color==1 or rescale==1:
@@ -283,8 +214,8 @@ if __name__ == '__main__':
     dir = 'dataset'         #location of Train_rings/, Dev_rings/, Test_rings/, Dev_rings_for_loss/ folders. Don't include final '/' in path
     lr = 0.0001             #learning rate
     bs = 32                 #batch size: smaller values = less memory but less accurate gradient estimate
-    epochs = 5              #number of epochs. 1 epoch = forward/back pass through all train data
-    n_train = 3008          #number of training samples, needs to be a multiple of batch size. Big memory hog.
+    epochs = 2              #number of epochs. 1 epoch = forward/back pass through all train data
+    n_train = 320          #number of training samples, needs to be a multiple of batch size. Big memory hog.
     save_models = 1         #save models
     inv_color = 1           #use inverse color
     rescale = 1             #rescale images to increase contrast (still 0-1 normalized)
