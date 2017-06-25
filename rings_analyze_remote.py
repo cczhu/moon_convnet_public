@@ -1,11 +1,6 @@
 import glob
-import cv2
-import os
-import glob
 import numpy as np
-import pandas as pd
-import sys
-from PIL import Image
+
 from keras.models import load_model
 from keras import backend as K
 from utils.helper_functions import rescale_and_invcolor
@@ -56,7 +51,7 @@ if __name__ == '__main__':
     inv_color = 1           #use inverse color (*must be same setting as what was used for the model(s)*)
     rescale = 1             #rescale images to increase contrast (*must be same setting as what was used for the model(s)*)
     n_pred_samples = 20     #number of test images to predict on
-    offset = 0              #index number to start predictions at (e.g. pred 20 images, start at 15th array element)
+    offset = 0              #index offset to start predictions at in test array
     models = ['models/unet_s256_rings_FL3_he_normal_customloss.h5']
     
     predict_targets(dir,inv_color,rescale,n_pred_samples,offset,models)
