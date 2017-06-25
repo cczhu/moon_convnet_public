@@ -69,8 +69,8 @@ def template_match_target_to_csv(target, csv_coords, minrad=2, maxrad=75):
         index = (diffsum == 0)|(diffsum > match_thresh2)
         N = len(np.where(index==False)[0])
         if N > 1:
-            print "multiple matches found in csv file for template matched crater ", tc, " :"
-            print csv_coords[np.where(index==False)]
+            #print "multiple matches found in csv file for template matched crater ", tc, " :"
+            #print csv_coords[np.where(index==False)]
             csv_duplicate_flag = 1
         N_match += N
         csv_coords = csv_coords[index]

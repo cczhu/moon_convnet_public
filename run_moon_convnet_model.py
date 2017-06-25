@@ -131,7 +131,7 @@ def train_and_test_model(X_train,Y_train,X_valid,Y_valid,X_test,Y_test,loss_data
                         
         # calcualte custom loss
         print ""
-        print "custom loss for epoch %d:"%nb
+        print "custom loss for epoch %d/%d:"%(nb,nb_epoch)
         match_csv_arr, templ_csv_arr, templ_new_arr = [], [], []
         loss_target = model.predict(loss_data.astype('float32'))
         for i in range(len(loss_data)):

@@ -29,7 +29,7 @@ First, make sure that the chosen CUDA device is available by doing 'nvidia-smi'.
 
 Within run_moon_convnet_model.py, all the main parameters that you might want to change is at the bottom of the script, under the __main__ function. These parameters have explanations given. For iterating over parameters (i.e. performing a grid search), in __main__ look for:  
 ########## Parameters to Iterate Over ##########  
-I’ve given a simple example of how to do this in the code. These variables must always be lists, even if you only want to run one model. Following the *save_models* variable, it will save models for every set of parameters you iterate over. Look for *model.save()* within the *train_and_test_model()* function and make sure that the name assigned to each model is unique so that models wont get overwritten as you iterate.
+I’ve given a simple example of how to do this in the code. These variables must always be lists, even if you only want to run one model. If *save_models=1*, a model will be saved for every set of parameters you iterate over. Look for *model.save()* within the *train_and_test_model()* function and make sure that the name assigned to each model is unique so that models wont get overwritten as you iterate.
 
 # Generating/Analyzing model predictions
 Once you have successfully created and trained a model, you will want to analyze new predictions. This can be done using rings_analyze_remote.py, which allows you to generate model predictions on scinet, and then analyze them on your local system.  
