@@ -3,7 +3,7 @@ import numpy as np
 
 from keras.models import load_model
 from keras import backend as K
-from utils.helper_functions import rescale_and_invcolor
+from utils.rescale_invcolor import rescale_and_invcolor
 
 ##############
 #Main Routine#
@@ -48,8 +48,8 @@ def predict_targets(dir,inv_color,rescale,n_pred_samples,offset,models):
 if __name__ == '__main__':
     #arguments
     dir = 'dataset'         #location of where test data is. Likely doesn't need to change
-    inv_color = 1           #use inverse color (*must be same setting as what was used for the model(s)*)
-    rescale = 1             #rescale images to increase contrast (*must be same setting as what was used for the model(s)*)
+    inv_color = 1           #use inverse color (**must be same setting as what was used for the model(s)**)
+    rescale = 1             #rescale images to increase contrast (**must be same setting as what was used for the model(s)**)
     n_pred_samples = 20     #number of test images to predict on
     offset = 0              #index offset to start predictions at in test array
     models = ['models/run_moon_convnet_model_FL3_he_normal.h5']
