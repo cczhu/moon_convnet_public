@@ -30,8 +30,8 @@ from keras import backend as K
 K.set_image_dim_ordering('tf')
 
 #custom functions
-from utils.rescale_invcolor import rescale_and_invcolor
-from utils.template_match_target import template_match_target_to_csv
+from utils.rescale_invcolor import *
+from utils.template_match_target import *
 
 ########################
 #custom image generator#
