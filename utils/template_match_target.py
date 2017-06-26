@@ -6,7 +6,7 @@ import numpy as np
 from skimage.feature import match_template
 import cv2
 
-def template_match_target(target, match_thresh2=20, minrad=2, maxrad=75):
+def template_match_target(target, match_thresh2=50, minrad=3, maxrad=75):
     #Match Threshold (squared)
     # for template matching, if (x1-x2)^2 + (y1-y2)^2 + (r1-r2)^2 < match_thresh2, remove (x2,y2,r2) circle (it is a duplicate).
     # for predicted target -> csv matching, if (x1-x2)^2 + (y1-y2)^2 + (r1-r2)^2 < match_thresh2, positive detection
@@ -50,14 +50,14 @@ def template_match_target(target, match_thresh2=20, minrad=2, maxrad=75):
     return coords
 
 
-def template_match_target_to_csv(target, csv_coords, minrad=2, maxrad=75):
+def template_match_target_to_csv(target, csv_coords, minrad=3, maxrad=75):
     #Match Threshold (squared)
     # for template matching, if (x1-x2)^2 + (y1-y2)^2 + (r1-r2)^2 < match_thresh2, remove (x2,y2,r2) circle (it is a duplicate).
     # for predicted target -> csv matching, if (x1-x2)^2 + (y1-y2)^2 + (r1-r2)^2 < match_thresh2, positive detection
-    match_thresh2 = 20
+    match_thresh2 = 50
     
     #get coordinates from template matching
-    templ_coords = template_match_target(target, match_thresh2, minrad=2, maxrad=75)
+    templ_coords = template_match_target(target, match_thresh2, minrad, maxrad)
 
     # compare template-matched results to "ground truth" csv input data
     N_match = 0
