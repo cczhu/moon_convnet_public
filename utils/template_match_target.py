@@ -1,5 +1,5 @@
-######################
-#custom loss function#
+##########################
+#template match functions#
 ########################################################################
 
 import numpy as np
@@ -10,6 +10,8 @@ def template_match_target(target, match_thresh2=50, minrad=3, maxrad=75):
     #Match Threshold (squared)
     # for template matching, if (x1-x2)^2 + (y1-y2)^2 + (r1-r2)^2 < match_thresh2, remove (x2,y2,r2) circle (it is a duplicate).
     # for predicted target -> csv matching, if (x1-x2)^2 + (y1-y2)^2 + (r1-r2)^2 < match_thresh2, positive detection
+    
+    #minrad - keep in mind that if the predicted target has thick rings, a small ring of diameter ~ ring thickness could be detected by match_filter.
     
     # minrad/maxrad are the radii to search over during template matching
     # hyperparameters, probably don't need to change
@@ -22,29 +24,39 @@ def template_match_target(target, match_thresh2=50, minrad=3, maxrad=75):
     target[target < target_thresh] = 0
     
     radii = np.linspace(minrad,maxrad,maxrad-minrad,dtype=int)
-    coords = []        #coordinates extracted from template matching
+    coords = []     #coordinates extracted from template matching
+    corr = []       #correlation coefficient for coordinates set
     for r in radii:
         # template
         n = 2*(r+ring_thickness+1)
         template = np.zeros((n,n))
         cv2.circle(template, (r+ring_thickness+1,r+ring_thickness+1), r, 1, ring_thickness)
         
-        # template match
+        # template match - result is nxn array of probabilities
         result = match_template(target, template, pad_input=True)   #skimage
-        coords_r = np.asarray(zip(*np.where(result > template_thresh)))
+        index_r = np.where(result > template_thresh)
+        coords_r = np.asarray(zip(*index_r))
+        corr_r = np.asarray(result[index_r])
         
         # store x,y,r
         for c in coords_r:
             coords.append([c[1],c[0],r])
+        for l in corr_r:
+            corr.append(np.abs(l))
 
     # remove duplicates from template matching at neighboring radii/locations
-    coords = np.asarray(coords)
+    coords, corr = np.asarray(coords), np.asarray(corr)
     i, N = 0, len(coords)
     while i < N:
         diff = (coords - coords[i])**2
         diffsum = np.asarray([sum(x) for x in diff])
-        index = (diffsum == 0)|(diffsum > match_thresh2)
-        coords = coords[index]
+        index = diffsum < match_thresh2
+        if len(np.where(index==True)[0]) > 1:
+            #replace current coord with max-correlation coord from duplicate list
+            coords_i, corr_i = coords[np.where(index==True)], corr[np.where(index==True)]
+            coords[i] = coords_i[corr_i == np.max(corr_i)][0]
+            index[i] = False
+            coords = coords[np.where(index==False)]
         N, i = len(coords), i+1
 
     return coords
