@@ -17,7 +17,7 @@ import datetime
 import pickle
 
 # I/O and math stuff
-import pandas as pd
+import itertools
 import numpy as np
 
 sys.path.append("/home/m/mhvk/czhu/moon_craters")
@@ -42,13 +42,13 @@ def get_image_data_format():
 ################ DATA READ-IN FUNCTIONS ################
 
 
-def read_and_normalize_data(path, Xtr, Ytr, Xte, Yte, normalize=True):
+def read_and_normalize_data(Xtr, Ytr, Xte, Yte, normalize=True):
     """Reads and returns input data.
     """
-    Xtrain = np.load(path + Xtr)
-    Ytrain = np.load(path + Ytr)
-    Xtest = np.load(path + Xte)
-    Ytest = np.load(path + Yte)
+    Xtrain = np.load(Xtr)
+    Ytrain = np.load(Ytr)
+    Xtest = np.load(Xte)
+    Ytest = np.load(Yte)
     if normalize:
         Xtrain /= 255.
         Xtest /= 255.
@@ -63,7 +63,7 @@ def read_and_normalize_data(path, Xtr, Ytr, Xte, Yte, normalize=True):
 ################ MOON DATA ITERATOR ################
 
 
-class MoonImageGen(object)
+class MoonImageGen(object):
     """Heavily modified version of keras.preprocessing.image.ImageDataGenerator.
     that creates density maps or masks, and performs random transformation
     on both source image and result consistently by treating the map/mask
@@ -392,20 +392,20 @@ def train_test_model(Xtrain, Ytrain, Xtest, Ytest, lambd, args):
     return mean_absolute_error(Ytest, Ypred)  #calculate test score
 
 
-def print_details(args, lambd):
-    print("Learning rate = {0:e}; Batch size = {1:d}, lambda = {2:d}".format( \
-            args["learn_rate"], args["batchsize"], lambd))
-    print("Number of epochs = {0:d}, N_training_samples = {1:d}".format( \
-            args["N_epochs"], args["N_sub_train"]))
+################ MAIN ACCESS ROUTINE ################
 
-
-def run_cross_validation(Xtrain, Ytrain, Xtest, Ytest, args):
+def run_model(in_args, out_csv=False):
+    
+    # Read in data, normalizing input images
+    Xtrain, Ytrain, Xtest, Ytest = read_and_normalize_data(in_args.Xtrainpth, 
+                                        in_args.Ytrainpth, in_args.Xtestpth, 
+                                        in_args.Ytestpth, normalize=True)
 
     # Get randomized lambda values for L2 regularization.  Always have 10^0 as baseline.
     lambd_space = np.logspace(args["CV_lambd_range"][0], 
-                                    args["CV_lambd_range"][1], 10*args["CV_lambd_N"])
+                              args["CV_lambd_range"][1], 10*args["CV_lambd_N"])
     lambd_arr = np.r_[np.random.choice(lambd_space, args["CV_lambd_N"]),
-                    np.array([0]))
+                    np.array([0])]
 
     for i, lambd in enumerate(lambd_arr):
         test_score = train_test_model(Xtrain, Ytrain, Xtest, Ytest, lambd, args)
@@ -417,93 +417,207 @@ def run_cross_validation(Xtrain, Ytrain, Xtest, Ytest, args):
         print('#####################################')
 
 
-################ MAIN ################
+################ MAIN ACCESS ROUTINE INPUT CLASS ################
+#https://stackoverflow.com/questions/21527610/pythonic-way-to-pass-around-many-arguments
 
 
-if __name__ == '__main__':
+class MoonConvnetInputs(object):
+    """
+    Stores input parameters (including private ones that are set by the CNN
+    architecture), and generates derived parameters to use in run functions.
+    Also generates table of
+    
+    Parameters
+    ----------
+    filedir : str
+        Input npy file directory (trailing slash unnecessary)
+    lr : float
+        Learning rate
+    bs : int
+        Batch size, must be larger than 1
+    epochs : int
+        Number of training epochs
+    n_train : int
+        Number of training samples, must be multiple of bs
+    gen_args : dict
+        Args to image generator.  See MoonIterator docstring for details.
+    autotable : bool
+        Automatically generate hyperparameter table for looping.  Default
+        is True.
+    table_args : dict
+        If ``autotable == True``, dict passed to automatic hyperparameter
+        table generator, which generates 
+    save_models : bool
+        If true, saves models to save_prefix directory
+    save_prefix : str
+        If ``save_models == True``, path and file prefix used for saves.
+    """
+    
+    def __init__(self, filedir, lr, bs, epochs, n_train,
+                 gen_args, autotable=True, table_args={},
+                 save_models=True, save_prefix='./models/run'):
+        
+        self.filedir = filedir
+        self._train_data = '/Train_rings/train_data.npy'
+        
+        self.lr = lr
+        self.bs = bs
+        self.epochs = epochs
+        self.n_train = n_train
 
-    import argparse
+        # Assert validity of input data
+        assert self.epochs >= 1, 'Must train for more than 1 epoch!'
+        assert self.bs >= 1, 'Batch size must be greater than 1!'
+        assert self.n_train % self.bs == 0, \
+                            'n_train must be divisible by bs!'
+                            
+        self.gen_args = gen_args
 
-    parser = argparse.ArgumentParser(description='Keras-based CNN for mapping crater images to density maps.')
-    parser.add_argument("path", 
-    parser.add_argument("Xtrain", type=str, help="Training input npy file")
-    parser.add_argument("Xtest", type=str, help="Testing input npy file")
-    parser.add_argument("Ytrain", type=str, help="Training target npy file")
-    parser.add_argument("Ytest", type=str, help="Testing target npy file")
-    parser.add_argument('--learn_rate', type=float, required=False,
-                        help='Learning rate', default=0.0001)
-#    parser.add_argument('--crater_cutoff', type=int, required=False,
-#                        help='Crater pixel diameter cutoff', default=3)
-    parser.add_argument('--batchsize', type=int, required=False,
-                        help='Crater pixel diameter cutoff', default=32)
-    parser.add_argument('--lambd', type=float, required=False,
-                        help='L2 regularization coefficient', default=0.)
-    parser.add_argument('--epochs', type=int, required=False,
-                        help='Number of training epochs', default=30)
-    parser.add_argument('--f_samp', type=int, required=False,
-                        help='Random fraction of samples to use', default=1.)
-    parser.add_argument('--dumpweights', type=str, required=False,
-                        help='Filename to dump NN weights to file')
-    parser.add_argument('--dumpargs', type=str, required=False,
-                        help='Filename to dump arguments into pickle')
-
-
-#    parser.add_argument('--lu_csv_path', metavar='lupath', type=str, required=False,
-#                        help='Path to LU78287 crater csv.', default="./LU78287GT.csv")
-#    parser.add_argument('--alan_csv_path', metavar='lupath', type=str, required=False,
-#                        help='Path to LROC crater csv.', default="./alanalldata.csv")
-#    parser.add_argument('--outhead', metavar='outhead', type=str, required=False,
-#                        help='Filepath and filename prefix of outputs.', default="out/lola")
-#    parser.add_argument('--amt', type=int, default=7500, required=False,
-#                        help='Number of images each thread will make (multiply by number of \
-#                        threads for total number of images produced).')
-
-    in_args = parser.parse_args()
-
-    # Print Keras version, just in case
-    print('Keras version: {0}'.format(keras.__version__))
-
-    # Read in data, normalizing input images
-    Xtrain, Ytrain, Xtest, Ytest = read_and_normalize_data(in_args.path, in_args.Xtrain, 
-                                        in_args.Ytrain, in_args.Xtest, in_args.Ytest, 
-                                        normalize=True)
-
-    # Declare master dictionary of input variables
-    args = {}
-
-    # Get image and target sizes
-    args["imgshp"] = tuple(Xtrain.shape[1:])
-    args["tgtshp"] = tuple(Ytrain.shape[1:])
-
-    # Load constants from user
-    args["path"] = args.path
-    args["learn_rate"] = in_args.learning_rate
-    #args["c_pix_cut"] = in_args.crater_cutoff
-
-    args["batchsize"] = in_args.batchsize
-    args["lambda"] = in_args.lambd
-    args["N_epochs"] = in_args.epochs
-    args["f_samp"] = in_args.f_samp
-
-    args["dumpweights"] = in_args.dumpweights
-
-    # Calculate next largest multiple of batchsize to N_train*f_samp
-    # Then use to obtain subset
-    args["N_sub_train"] = int(args["batchsize"] * np.ceil( Xtrain.shape[0] * \
-                                        args["f_samp"] / args["batchsize"] ))
-    args["sub_train"] = np.random.choice(X.shape[0], size=args["N_sub_train"])
-    Xtrain = Xtrain[args["sub_train"]]
-    Ytrain = Ytrain[args["sub_train"]]
+        if autotable:
+            self.table_generator(table_args)            
+        else:
+            self._hyper_table = None
+            self._table_raw = None
+            self._hyper_table_columns = None
+        
+        self.save_models = save_models
+        self.save_prefix = save_prefix
+        
+        # Static arguments (dependent on CNN structure)
+        self._img_dim = 256
 
 
-    # Cross-validation parameters that could be user-selectable at a later date.
-    args["CV_lambd_N"] = 10             # Number of L2 regularization coefficients to try
-    args["CV_lambd_range"] = (-3, 0)    # Log10 range of L2 regularization coefficients
-    args["random_state"] = None         # Random initializer for train_test_split
-    args["test_size"] = 0.2             # train_test_split fraction of examples for validation
+    @property
+    def img_dim(self):
+        return self._img_dim
+    
+    @property
+    def Xtrainpth(self):
+        return self.filedir + '/Train_rings/train_data.npy'
+
+    @property
+    def Ytrainpth(self):
+        return self.filedir + '/Train_rings/train_target.npy'
+
+    @property
+    def Xdevpth(self):
+        return self.filedir + '/Dev_rings/dev_data.npy'
+    
+    @property
+    def Ydevpth(self):
+        return self.filedir + '/Dev_rings/dev_target.npy'
+
+    @property
+    def Xtestpth(self):
+        return self.filedir + '/Test_rings/test_data.npy'
+    
+    @property
+    def Ytestpth(self):
+        return self.filedir + '/Test_rings/test_target.npy'
+    
+
+    # Specifically not using pandas to reduce number of dependencies
+    def table_generator(self, targs):
+        """
+        Auto hyperparameter table generator.  Currently able to modify:
+            
+            filter_length
+            n_filters
+            lmbda
+            weight_init
+            
+        To specify a given hyperparameter range, either include in targs an 
+        entry with the corresponding hyperparameter name and a four-tuple
+        
+            targs[name] = (min, max, num, lin/log/log10)
+            
+        where min and max are the minimum and maximum possible values, num
+        is the number of values, and lin/log should either be "lin", "log" or
+        "log10" for linear or logarithmic (e or 10) scaling.  The function will
+        then produce
+        
+            np.linspace(min, max, num) 
+                or 
+            10**np.linspace(np.log10(min), np.log10(max), num)
+        
+        Alternatively, a list can be passed, which will be directly used
+        without modification.
+            
+        If necessary parameters are not included, function falls back on
+        defaults.  Function ignores any unrecognized parameters passed.
+        
+        Parameters
+        ----------
+        targs : dict
+            Dict of table arguments.
+        """
+        self._hyper_table_columns = ['filter_length', 'n_filters',
+                                    'lmbda', 'weight_init']
+        
+        # Copy for internal use, then fill in missing hyperparams
+        args = targs.copy()
+        if 'filter_length' not in args.keys():
+            args['filter_length'] = [3]
+        
+        
+        # Tuple of range values for each hyperparameter
+        table_raw = (item if isinstance(args[item], list) else 
+                         self.table_subloop(args[item]) for 
+                         item in self._hyper_table_columns)
+        self._table_raw = table_raw
+        
+        # Generate table
+        self._hyper_table = list(itertools.product(table_raw))
 
 
-    # CALL TRAIN TEST
+    @staticmethod
+    def table_subloop(param_tuple):
+        assert len(param_tuple) == 4, 'Must have four elements in tuple!'
+        
+        if param_tuple[3] == 'log':
+            return np.exp(np.linspace(np.log(param_tuple[0]),
+                                      np.log(param_tuple[1]),
+                                      param_tuple[2]))
+        if param_tuple[3] == 'log10':
+            return 10**np.linspace(np.log10(param_tuple[0]),
+                                   np.log10(param_tuple[1]),
+                                   param_tuple[2])
+        return np.linspace(param_tuple[0], param_tuple[1], param_tuple[2])
 
-    if in_args.dumpargs:
-        pickle.dump( args, open(in_args.dumpargs, 'wb') )
+
+    def print_csv(self, **kwargs):
+        printstr = ','.join([
+                        '{0:.4e}'.format(self.lr),
+                        '{0:d}'.format(self.bs),
+                        '{0:d}'.format(self.epochs),
+                        '{0:d}'.format(self.n_train),
+                        '{0:d}'.format(self.img_dim)])
+        if len(kwargs):
+            printstr += ','
+            for key in kwargs.keys():
+                printstr += '{0:.6e},'.format(kwargs[key])
+            printstr = printstr[:-1]  # Remove last comma
+
+
+    def print_everything(self):
+        vals = self.print_csv().split(',')
+        printstr = 'Learning rate = ' + vals[0] + \
+                   '; Batch size = ' + vals[1] + \
+                   '; Epochs = ' + vals[2] + \
+                   '; N_train = ' + vals[3] + \
+                   '; Img dim = ' + vals[4]
+        
+        if len(self.gen_args):
+            printstr += '\nGenerator Args: '
+            for key in self.gen_args.keys():
+                printstr += '{0:s} = {1:s}; '.format(
+                                      key, str(self.gen_args[key]))
+        if self._hyper_table_columns:
+            printstr += '\nTable Args: '
+            for i, key in enumerate(self._hyper_table_columns):
+                printstr += '{0:s}: {1:s}; '.format(
+                                key, self._table_raw[i].__repr__())
+
+
+    def __repr__(self):
+        return self.print_everything()
