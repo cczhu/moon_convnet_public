@@ -30,21 +30,25 @@ gen_args['contrast_keep_mean'] = True
 
 table_args = {}
 # Filter size.
-table_args['filter_length'] = [3, 5]
+#table_args['filter_length'] = [3, 5]
+table_args['filter_length'] = 3
 # Number of filters.  Ensure total number of model  parameters <~ 10M, otherwise OOM problems
-table_args['n_filters'] = [64]
+table_args['n_filters'] = 64
 # L2 regularization weight
-table_args['lmbda'] = [0.] + [i for i in 10**np.linspace(-4, -1, 4)]
+table_args['lmbda'] = 0
+#table_args['lmbda'] = [0.] + [i for i in 10**np.linspace(-4, -1, 4)]
 # Initialization of weights
 table_args['weight_init'] = ['he_normal', 'he_uniform']
 
 ########## Run model ##########
 
 # Collate arguments into input class
-cnn_input = ConvnetInputs(filedir, lr, bs, epochs, n_train,
+cnn_input = model.ConvnetInputs(filedir, lr, bs, epochs, n_train,
                                  gen_args, table_args=table_args,
                                  save_prefix='./models/run')
 
+model.run_model(cnn_input)
+    
 #run models
 #model.run_models(dir,lr,bs,epochs,n_train,inv_color,rescale,save_models,filter_length,n_filters,lmbda,init)
 
