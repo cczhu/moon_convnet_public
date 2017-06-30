@@ -9,6 +9,9 @@
 #This model uses keras version 1.2.2.
 ############################################
 
+# Past-proofing
+from __future__ import absolute_import, division, print_function
+
 import os
 import glob
 import numpy as np
@@ -108,7 +111,7 @@ def unet_model(dim,learn_rate,lmbda,FL,init,n_filters):
     #optimizer/compile
     optimizer = Adam(lr=learn_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
     model.compile(loss='binary_crossentropy', optimizer=optimizer)  #binary cross-entropy severely penalizes opposite predictions.
-    print model.summary()
+    print(model.summary())
 
     return model
 
@@ -130,8 +133,8 @@ def train_and_test_model(X_train,Y_train,X_valid,Y_valid,X_test,Y_test,loss_data
                         callbacks=[EarlyStopping(monitor='val_loss', patience=3, verbose=0)])
                         
         # calcualte custom loss
-        print ""
-        print "custom loss for epoch %d/%d:"%(nb+1,nb_epoch)
+        print("")
+        print("custom loss for epoch %d/%d:"%(nb+1,nb_epoch))
         match_csv_arr, templ_csv_arr, templ_new_arr = [], [], []
         loss_target = model.predict(loss_data.astype('float32'))
         for i in range(len(loss_data)):
@@ -143,10 +146,10 @@ def train_and_test_model(X_train,Y_train,X_valid,Y_valid,X_test,Y_test,loss_data
             if N_templ > 0:
                 templ_new = float(N_templ - N_match)/float(N_templ) #fraction of craters that are new
             match_csv_arr.append(match_csv); templ_csv_arr.append(templ_csv); templ_new_arr.append(templ_new)
-        print "mean and std of N_match/N_csv (recall) = %f, %f"%(np.mean(match_csv_arr), np.std(match_csv_arr))
-        print "mean and std of N_template/N_csv = %f, %f"%(np.mean(templ_csv_arr), np.std(templ_csv_arr))
-        print "mean and std of (N_template - N_match)/N_template (fraction of craters that are new) = %f, %f"%(np.mean(templ_new_arr), np.std(templ_new_arr))
-        print ""
+        print("mean and std of N_match/N_csv (recall) = %f, %f"%(np.mean(match_csv_arr), np.std(match_csv_arr)))
+        print("mean and std of N_template/N_csv = %f, %f"%(np.mean(templ_csv_arr), np.std(templ_csv_arr)))
+        print("mean and std of (N_template - N_match)/N_template (fraction of craters that are new) = %f, %f"%(np.mean(templ_new_arr), np.std(templ_new_arr)))
+        print("")
     
     if save_models == 1:
         model.save('models/run_moon_convnet_model_FL%d_%s.h5'%(FL,init))
@@ -167,7 +170,7 @@ def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,inv_color,resc
     valid_target=np.load('%s/Dev_rings/dev_target.npy'%dir)[:n_train_samples]
     test_data=np.load('%s/Test_rings/test_data.npy'%dir)[:n_train_samples]
     test_target=np.load('%s/Test_rings/test_target.npy'%dir)[:n_train_samples]
-    print "Successfully loaded files locally."
+    print("Successfully loaded files locally.")
 
     #prepare images for custom loss
     custom_loss_path = '%s/Dev_rings_for_loss'%dir
@@ -176,7 +179,7 @@ def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,inv_color,resc
 
     #Invert image colors and rescale pixel values to increase contrast
     if inv_color==1 or rescale==1:
-        print "inv_color=%d, rescale=%d, processing data"%(inv_color, rescale)
+        print("inv_color=%d, rescale=%d, processing data"%(inv_color, rescale))
         train_data = rescale_and_invcolor(train_data, inv_color, rescale)
         valid_data = rescale_and_invcolor(valid_data, inv_color, rescale)
         test_data = rescale_and_invcolor(test_data, inv_color, rescale)
@@ -190,12 +193,12 @@ def run_models(dir,learn_rate,batch_size,nb_epoch,n_train_samples,inv_color,resc
         FL = filter_length[i]
         L = lmbda[i]
         score = train_and_test_model(train_data,train_target,valid_data,valid_target,test_data,test_target,loss_data,loss_csvs,dim,learn_rate,nb_epoch,batch_size,save_models,L,FL,I,NF)
-        print '###################################'
-        print '##########END_OF_RUN_INFO##########'
+        print('###################################')
+        print('##########END_OF_RUN_INFO##########')
         print('\nTest Score is %f \n'%score)
-        print 'learning_rate=%e, batch_size=%d, filter_length=%e, n_epoch=%d, n_train_samples=%d, img_dimensions=%d, inv_color=%d, rescale=%d, init=%s, n_filters=%d'%(learn_rate,batch_size,FL,nb_epoch,n_train_samples,dim,inv_color,rescale,I,NF)
-        print '###################################'
-        print '###################################'
+        print('learning_rate=%e, batch_size=%d, filter_length=%e, n_epoch=%d, n_train_samples=%d, img_dimensions=%d, inv_color=%d, rescale=%d, init=%s, n_filters=%d'%(learn_rate,batch_size,FL,nb_epoch,n_train_samples,dim,inv_color,rescale,I,NF))
+        print('###################################')
+        print('###################################')
 
 ################
 #Arguments, Run#

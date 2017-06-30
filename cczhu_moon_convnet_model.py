@@ -19,9 +19,7 @@ import pickle
 # I/O and math stuff
 import itertools
 import numpy as np
-
-sys.path.append("/home/m/mhvk/czhu/moon_craters")
-import make_density_map as densmap
+import pandas as pd
 
 # NN and CV stuff
 from sklearn.model_selection import train_test_split #, Kfold
@@ -33,11 +31,10 @@ from keras.preprocessing.image import Iterator
 from keras.callbacks import EarlyStopping #, ModelCheckpoint
 
 # Silly Keras 2 to Keras 1.2.2 conversion thingy
-def get_image_data_format():
-    img_dim_order = K.image_dim_ordering()
-    if img_dim_order == "th":
-        return "channels_first"
-    return "channels_last"
+if K.image_dim_ordering() == "th":
+    _img_dim_order = "channels_first"
+else:
+    _img_dim_order = "channels_last"
 
 ################ DATA READ-IN FUNCTIONS ################
 
@@ -113,7 +110,7 @@ class MoonImageGen(object):
                  data_format=None):
 
         if data_format is None:
-            data_format = get_image_data_format()
+            data_format = _img_dim_order
         self.rotation_range = rotation_range
         #self.width_shift_range = width_shift_range
         #self.height_shift_range = height_shift_range
@@ -288,7 +285,7 @@ class MoonIterator(Iterator):
     y: numpy.array
         3D numpy array of output targets.
     moon_image_gen: MoonImageGen instance
-        Instance to use for random transformations 
+        Instance to use for random transformations
         and standardization.
     batch_size: int
         Size of a batch.
@@ -312,7 +309,7 @@ class MoonIterator(Iterator):
                              (x.shape[0], y.shape[0]))
 
         if data_format is None:
-            data_format = get_image_data_format()
+            data_format = _img_dim_order
         self.x = np.asarray(x, dtype=K.floatx())
 
         if self.x.ndim != 4:
@@ -373,7 +370,7 @@ def train_test_model(Xtrain, Ytrain, Xtest, Ytest, lambd, args):
 
     Xtr, Xval, Ytr, Yval = train_test_split(Xtrain, Ytrain, test_size=args["test_size"], 
                                                     random_state=args["random_state"])
-    gen = MoonDataGenerator(width_shift_range=1./args["imgshp"][1],
+    gen = MoonImageGen(width_shift_range=1./args["imgshp"][1],
                          height_shift_range=1./args["imgshp"][0],
                          fill_mode='constant',
                          horizontal_flip=True, vertical_flip=True)
@@ -397,9 +394,9 @@ def train_test_model(Xtrain, Ytrain, Xtest, Ytest, lambd, args):
 def run_model(in_args, out_csv=False):
     
     # Read in data, normalizing input images
-    Xtrain, Ytrain, Xtest, Ytest = read_and_normalize_data(in_args.Xtrainpth, 
-                                        in_args.Ytrainpth, in_args.Xtestpth, 
-                                        in_args.Ytestpth, normalize=True)
+    Xtrain, Ytrain, Xtest, Ytest = read_and_normalize_data(in_args.Xtrainpath, 
+                                        in_args.Ytrainapth, in_args.Xtestpath, 
+                                        in_args.Ytestpath, normalize=True)
 
     # Get randomized lambda values for L2 regularization.  Always have 10^0 as baseline.
     lambd_space = np.logspace(args["CV_lambd_range"][0], 
@@ -420,13 +417,12 @@ def run_model(in_args, out_csv=False):
 ################ MAIN ACCESS ROUTINE INPUT CLASS ################
 #https://stackoverflow.com/questions/21527610/pythonic-way-to-pass-around-many-arguments
 
-
-class MoonConvnetInputs(object):
+class ConvnetInputs(object):
     """
     Stores input parameters (including private ones that are set by the CNN
     architecture), and generates derived parameters to use in run functions.
     Also generates table of
-    
+
     Parameters
     ----------
     filedir : str
@@ -446,134 +442,151 @@ class MoonConvnetInputs(object):
         is True.
     table_args : dict
         If ``autotable == True``, dict passed to automatic hyperparameter
-        table generator, which generates 
+        table generator, which generates
     save_models : bool
         If true, saves models to save_prefix directory
     save_prefix : str
         If ``save_models == True``, path and file prefix used for saves.
     """
-    
+
     def __init__(self, filedir, lr, bs, epochs, n_train,
                  gen_args, autotable=True, table_args={},
-                 save_models=True, save_prefix='./models/run'):
-        
+                 save_models=True, save_prefix="./models/run"):
+
         self.filedir = filedir
-        self._train_data = '/Train_rings/train_data.npy'
-        
+        self._train_data = "/Train_rings/train_data.npy"
+
         self.lr = lr
         self.bs = bs
         self.epochs = epochs
         self.n_train = n_train
 
-        # Assert validity of input data
-        assert self.epochs >= 1, 'Must train for more than 1 epoch!'
-        assert self.bs >= 1, 'Batch size must be greater than 1!'
-        assert self.n_train % self.bs == 0, \
-                            'n_train must be divisible by bs!'
-                            
         self.gen_args = gen_args
 
         if autotable:
-            self.table_generator(table_args)            
+            self.table_generator(table_args)
         else:
-            self._hyper_table = None
+            self.hyper_table = None
             self._table_raw = None
-            self._hyper_table_columns = None
-        
+
         self.save_models = save_models
         self.save_prefix = save_prefix
-        
+
         # Static arguments (dependent on CNN structure)
         self._img_dim = 256
 
+    @property
+    def epochs(self):
+        return self._epochs
+
+    @epochs.setter
+    def epochs(self, value):
+        assert value >= 1, "Must train for more than 1 epoch!"
+        self._epochs = value
+
+    @property
+    def bs(self):
+        return self._bs
+
+    @bs.setter
+    def bs(self, value):
+        assert value >= 1, "Batch size must be greater than 1!"
+        self._bs = value
+
+    @property
+    def n_train(self):
+        return self._n_train
+
+    @n_train.setter
+    def n_train(self, value):
+        assert value % self.bs == 0, "n_train must be divisible by bs!"
+        self._n_train = value
 
     @property
     def img_dim(self):
         return self._img_dim
-    
-    @property
-    def Xtrainpth(self):
-        return self.filedir + '/Train_rings/train_data.npy'
 
     @property
-    def Ytrainpth(self):
-        return self.filedir + '/Train_rings/train_target.npy'
+    def Xtrainpath(self):
+        return self.filedir + "/Train_rings/train_data.npy"
 
     @property
-    def Xdevpth(self):
-        return self.filedir + '/Dev_rings/dev_data.npy'
-    
-    @property
-    def Ydevpth(self):
-        return self.filedir + '/Dev_rings/dev_target.npy'
+    def Ytrainpath(self):
+        return self.filedir + "/Train_rings/train_target.npy"
 
     @property
-    def Xtestpth(self):
-        return self.filedir + '/Test_rings/test_data.npy'
-    
+    def Xdevpath(self):
+        return self.filedir + "/Dev_rings/dev_data.npy"
+
     @property
-    def Ytestpth(self):
-        return self.filedir + '/Test_rings/test_target.npy'
-    
+    def Ydevpath(self):
+        return self.filedir + "/Dev_rings/dev_target.npy"
+
+    @property
+    def Xtestpath(self):
+        return self.filedir + "/Test_rings/test_data.npy"
+
+    @property
+    def Ytestpath(self):
+        return self.filedir + "/Test_rings/test_target.npy"
 
     # Specifically not using pandas to reduce number of dependencies
     def table_generator(self, targs):
         """
         Auto hyperparameter table generator.  Currently able to modify:
-            
+
             filter_length
             n_filters
             lmbda
             weight_init
-            
-        To specify a given hyperparameter range, either include in targs an 
+
+        To specify a given hyperparameter range, either include in targs an
         entry with the corresponding hyperparameter name and a four-tuple
-        
+
             targs[name] = (min, max, num, lin/log/log10)
-            
+
         where min and max are the minimum and maximum possible values, num
         is the number of values, and lin/log should either be "lin", "log" or
         "log10" for linear or logarithmic (e or 10) scaling.  The function will
         then produce
-        
-            np.linspace(min, max, num) 
-                or 
+
+            np.linspace(min, max, num)
+                or
             10**np.linspace(np.log10(min), np.log10(max), num)
-        
+
         Alternatively, a list can be passed, which will be directly used
         without modification.
-            
+
         If necessary parameters are not included, function falls back on
         defaults.  Function ignores any unrecognized parameters passed.
-        
+
         Parameters
         ----------
         targs : dict
             Dict of table arguments.
         """
-        self._hyper_table_columns = ['filter_length', 'n_filters',
-                                    'lmbda', 'weight_init']
-        
+        hyper_table_columns = ['filter_length', 'n_filters',
+                               'lmbda', 'weight_init']
+
         # Copy for internal use, then fill in missing hyperparams
         args = targs.copy()
         if 'filter_length' not in args.keys():
             args['filter_length'] = [3]
-        
-        
-        # Tuple of range values for each hyperparameter
-        table_raw = (item if isinstance(args[item], list) else 
-                         self.table_subloop(args[item]) for 
-                         item in self._hyper_table_columns)
-        self._table_raw = table_raw
-        
-        # Generate table
-        self._hyper_table = list(itertools.product(table_raw))
 
+        # Tuple of range values for each hyperparameter
+        self._table_raw = tuple(args[item] if isinstance(args[item], list) else
+                                self.table_subloop(args[item]) for
+                                item in hyper_table_columns)
+
+        # Generate table
+        self.hyper_table = pd.DataFrame(
+                                list(itertools.product(self._table_raw)),
+                                columns=hyper_table_columns)
 
     @staticmethod
     def table_subloop(param_tuple):
-        assert len(param_tuple) == 4, 'Must have four elements in tuple!'
-        
+        assert len(param_tuple) == 4, "Must have four elements in tuple!"
+
         if param_tuple[3] == 'log':
             return np.exp(np.linspace(np.log(param_tuple[0]),
                                       np.log(param_tuple[1]),
@@ -584,40 +597,47 @@ class MoonConvnetInputs(object):
                                    param_tuple[2])
         return np.linspace(param_tuple[0], param_tuple[1], param_tuple[2])
 
-
-    def print_csv(self, **kwargs):
+    def get_csv_str(self, **kwargs):
         printstr = ','.join([
-                        '{0:.4e}'.format(self.lr),
-                        '{0:d}'.format(self.bs),
-                        '{0:d}'.format(self.epochs),
-                        '{0:d}'.format(self.n_train),
-                        '{0:d}'.format(self.img_dim)])
+                        "{0:.4e}".format(self.lr),
+                        "{0:d}".format(self.bs),
+                        "{0:d}".format(self.epochs),
+                        "{0:d}".format(self.n_train),
+                        "{0:d}".format(self.img_dim)])
         if len(kwargs):
-            printstr += ','
+            printstr += ","
             for key in kwargs.keys():
-                printstr += '{0:.6e},'.format(kwargs[key])
+                printstr += "{0:.6e},".format(kwargs[key])
             printstr = printstr[:-1]  # Remove last comma
 
+        return printstr
 
     def print_everything(self):
-        vals = self.print_csv().split(',')
-        printstr = 'Learning rate = ' + vals[0] + \
-                   '; Batch size = ' + vals[1] + \
-                   '; Epochs = ' + vals[2] + \
-                   '; N_train = ' + vals[3] + \
-                   '; Img dim = ' + vals[4]
-        
-        if len(self.gen_args):
-            printstr += '\nGenerator Args: '
-            for key in self.gen_args.keys():
-                printstr += '{0:s} = {1:s}; '.format(
-                                      key, str(self.gen_args[key]))
-        if self._hyper_table_columns:
-            printstr += '\nTable Args: '
-            for i, key in enumerate(self._hyper_table_columns):
-                printstr += '{0:s}: {1:s}; '.format(
-                                key, self._table_raw[i].__repr__())
+        vals = self.get_csv_str().split(',')
+        name = "< " + self.__class__.__name__ + " "
+        printstr = name + ("\n" + len(name) * " ").join(
+                ["Learning rate = {0}".format(vals[0]),
+                 "Batch size = {0}".format(vals[1]),
+                 "Epochs = {0}".format(vals[2]),
+                 "N_train = {0}".format(vals[3]),
+                 "Img dim = {0}".format(vals[4])])
 
+        if len(self.gen_args):
+            printstr += "\n" + len(name) * " " + "Generator Args:"
+            for key in self.gen_args.keys():
+                printstr += "\n" + (len(name) + 4) * " " + \
+                            "{0:s} = {1:s}".format(key,
+                                                     str(self.gen_args[key]))
+
+        if self.hyper_table:
+            printstr += "\n" + len(name) * " " + "Table Raw Args: "
+            for i, key in enumerate(self.hyper_table.columns):
+                printstr += "\n" + (len(name) + 4) * " " + \
+                            "{0}: {1}".format(
+                                key, list(self.hyper_table[key].unique()))
+        printstr += " >"
+
+        return printstr
 
     def __repr__(self):
         return self.print_everything()
