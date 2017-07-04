@@ -47,7 +47,7 @@ cnn_input = model.ConvnetInputs(filedir, lr, bs, epochs, n_train,
                                  gen_args, table_args=table_args,
                                  save_prefix='./models/run')
 
-model.run_model(cnn_input)
+#model.run_model(cnn_input)
     
 #run models
 #model.run_models(dir,lr,bs,epochs,n_train,inv_color,rescale,save_models,filter_length,n_filters,lmbda,init)

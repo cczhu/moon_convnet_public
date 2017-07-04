@@ -34,24 +34,19 @@ if K.image_dim_ordering() == "th":
     _img_dim_order = "channels_first"
 else:
     _img_dim_order = "channels_last"
-
+    
+    
 ################ DATA READ-IN FUNCTIONS ################
 
 
 def read_and_normalize_data(Xtr, Ytr, Xdev, Ydev, Xte, Yte,
-                            normalize=True, verbose=True):
+                            normalize=True, invert=False,
+                            rescale=False, verbose=True):
     """Reads and returns input data.
     """
-    Xtrain = np.load(Xtr)
-    Ytrain = np.load(Ytr)
-    Xdev = np.load(Xdev)
-    Ydev = np.load(Ydev)
-    Xtest = np.load(Xte)
-    Ytest = np.load(Yte)
-    if normalize:
-        Xtrain /= 255.
-        Xdev /= 255.
-        Xtest /= 255.
+    Xtrain, Ytrain = read_and_norm_sub(Xtr, Ytr, normalize)
+    Xdev, Ydev = read_and_norm_sub(Xdev, Ydev, normalize)
+    Xtest, Ytest = read_and_norm_sub(Xte, Yte, normalize)
     if verbose:
         print("Loaded data.  N_samples: train = {0}; dev = {1}"
               "test = {2}".format(Xtrain.shape[0], Xdev.shape[0],
@@ -60,22 +55,60 @@ def read_and_normalize_data(Xtr, Ytr, Xdev, Ydev, Xte, Yte,
                                                       Ytrain.shape[1:]))
     return Xtrain, Ytrain, Xdev, Ydev, Xtest, Ytest
 
+# read_and_norm_sub globals; change if you feel like you need to customize
+# brightness rescaling.
+_rescale_low = 0.1
+_rescale_high = 1.
+
+def read_and_norm_sub(Xpath, Ypath, normalize, invert, rescale):
+    """Sub-function of read_and_normalize_data.  Loads individual data/target
+    sets.  Rescaling and inverting intensity based off of rescale_and_invcolor
+    from Ari's repo.
+    
+    Invert and rescale will only work if normalize == True.
+    """
+    X = np.load(Xpath)
+    Y = np.load(Ypath)
+
+    # Rescale X luminosity to between 0 - 1.
+    if normalize:
+        X /= 255.
+        
+        if invert:
+            X[X > 0.] = 1. - X[X > 0.]
+
+        if rescale:
+            for i in range(X.shape[0]):
+                # X[i, X[i] > 0] returns view of X!
+                CX = X[i, X[i] > 0]
+                minv = np.min(CX)
+                maxv = np.max(CX)
+                CX = _rescale_low + (CX - minv) * \
+                    (_rescale_high - _rescale_low) / (maxv - minv)
+
+    # If data doesn't already have a channels axis, add one.
+    if len(X.shape) == 3:
+        if _img_dim_order == "channels_first":
+            X = X.reshape(X.shape[0], 1, *X.shape[1:])
+        else:
+            X = X.reshape(*X.shape, 1)
+
+    return X, Y
+
 
 ################ MOON DATA ITERATOR ################
 
 
 class CraterImageGen(object):
-    """Heavily modified version of keras.preprocessing.image.ImageDataGenerator.
-    that creates density maps or masks, and performs random transformation
-    on both source image and result consistently by treating the map/mask
-    as another colour channel.
+    """Heavily modified version of keras.preprocessing.image.ImageDataGenerator
+    that performs data augmentation on crater image and ring mask data.
 
     Parameters
     ----------
     rotation: bool
         If true, randomly rotates by 90, 180 or 270 degrees
     arbitrary_rotation_range: float (0 to 180)
-        Range of possible rotations (from -rotation_range to 
+        Range of possible rotations (from -rotation_range to
         +rotation_range).
     offset_range: float (0 to 1)
         +/- fraction of total width and height that can be shifted.
@@ -84,23 +117,32 @@ class CraterImageGen(object):
     vertical_flip: bool
         If True, randomly flip images vertically.
     shear_range: float
-        Shear intensity (shear angle in radians).
+        Shear intensity (shear angle in degrees).
     fill_mode: 'constant', 'nearest', 'reflect', or 'wrap'
         Points outside the boundaries are filled according to the
-        given mode.  Default is 'constant', which works with default 
+        given mode.  Default is 'constant', which works with default
         cval=0 to keep regions outside border zeroed.
     cval: float
         Value used for points outside the boundaries when fill_mode is
         'constant'. Default is 0.
     contrast_range: float or list
-        Amount of random contrast rescaling. if scalar c >= 0, contrast will 
-        be randomly picked in the range [1-c, 1+c]. A list of [min, max] can be 
-        passed instead to select this range.
+        Amount of random contrast rescaling. if scalar c >= 0, contrast will
+        be randomly picked in the range [1-c, 1+c]. A list of [min, max] can be
+        passed instead to select this range.  This can be used to
+        systematically alter the contrast by passing a list of two identical
+        values.  This is more straightforwardly done, however, in
+        read_and_normalize_data, where we can rescale all images to have
+        a brightness range between user-defined min and max values.
     contrast_keep_mean: bool
         Rescales brightness of image following contrast rescaling so
         that mean brightness remains unchanged from original.
+    random_colour_inversion : bool
+        Randomly inverts (non-zero) brightnesses.  For inverted images,
+        craters are brighter than surroundings.  To systematically do this
+        for every image, use the invert option in read_and_normalize_data.
+    zoom_range
     data_format: 'channels_first' or 'channels_last'
-        In 'channels_first' mode, the channels dimension (the depth) 
+        In 'channels_first' mode, the channels dimension (the depth)
         is at index 1, in 'channels_last' mode it is at index 3.
         It defaults to the `image_data_format` value found in your
         Keras config file at `~/.keras/keras.json`.
@@ -110,26 +152,36 @@ class CraterImageGen(object):
                  rotation=True,
                  arbitrary_rotation_range=0.,
                  offset_range=0.,
-                 horizontal_flip=False,
-                 vertical_flip=False,
+                 horizontal_flip=True,
+                 vertical_flip=True,
                  shear_range=0.,
+                 zoom_range=0.,
                  fill_mode='constant',
                  cval=0.,
                  contrast_range=0.,
                  contrast_keep_mean=False,
+                 random_colour_inversion=False,
                  data_format=None):
 
         if data_format is None:
             data_format = _img_dim_order
         self.rotation = rotation
         self.arbitrary_rotation_range = arbitrary_rotation_range
-        self.shift_range = shift_range
-        self.height_shift_range = height_shift_range
+        self.offset_range = offset_range
         self.shear_range = shear_range
         self.fill_mode = fill_mode
         self.cval = cval
         self.horizontal_flip = horizontal_flip
         self.vertical_flip = vertical_flip
+
+        if np.isscalar(zoom_range):
+            self.zoom_range = [1 - zoom_range, 1 + zoom_range]
+        elif len(zoom_range) == 2:
+            self.zoom_range = [zoom_range[0], zoom_range[1]]
+        else:
+            raise ValueError('`zoom_range` should be a float or '
+                             'a tuple or list of two floats. '
+                             'Received arg: ', zoom_range)
 
         if np.isscalar(contrast_range):
             self.contrast_range = [1 - contrast_range, 1 + contrast_range]
@@ -139,13 +191,14 @@ class CraterImageGen(object):
             raise ValueError('contrast_range should be a float or '
                              'a tuple or list of two floats. '
                              'Received arg: ', contrast_range)
-
         self.contrast_keep_mean = contrast_keep_mean
+        
+        self.random_colour_inversion = random_colour_inversion
 
         if data_format not in {'channels_last', 'channels_first'}:
             raise ValueError("data_format should be 'channels_last'"
                              "(channel after row and column) or "
-                             "'channels_first' (channel before row and 
+                             "'channels_first' (channel before row and "
                              "column).  Received arg: {0}".format(data_format))
         self.data_format = data_format
         if data_format == 'channels_first':
@@ -158,6 +211,22 @@ class CraterImageGen(object):
             self.col_axis = 2
 
     def flow(self, x, y, batch_size=32, shuffle=True, seed=None):
+        """Returns iterator used in training.
+        
+        Parameters
+        ----------
+        X : numpy.ndarray
+            Source images.  Code expects 4-dimensional tensors with channel
+            axis consistent with Keras's image dimension order.
+        Y : numpy.ndarray
+            Target ring masks.  Code exects 3-dimensional tensors.
+        batch_size : int
+            Batch size to return each iteration.
+        shuffle : bool
+            Shuffle data.  Defaults to true.
+        seed : None or int
+            
+        """
         return CraterIterator(
             x, y, self,
             batch_size=batch_size,
@@ -167,10 +236,17 @@ class CraterImageGen(object):
 
     def standardize(self, x):
         """Apply the standardization configuration to a batch of inputs.
-        Currently only deals with contrast shift and mean renormalization.
-        # Arguments
-            x: batch of normalized input to be standardized
-        # Returns
+        Currently deals with contrast shift and mean renormalization, and
+        intensity inversion.
+        
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Batch of normalized input to be standardized
+            
+        Returns
+        -------
+        numpy.ndarray
             The inputs, standardized.
         """
         if self.contrast_range[0] != 1 and self.contrast_range[1] != 1:
@@ -193,52 +269,65 @@ class CraterImageGen(object):
             # Deal with clipping
             x[x > 1.] = 1.
             x[x < 0.] = 0.
+            
+        if self.random_colour_inversion:
+            if np.random.random() < 0.5:
+                x[x > 0.] = 1. - x[x > 0.]
 
         return x
 
     def random_transform(self, x, y):
         """Randomly augment a single image tensor.  Does NOT copy tensor (this
         is done in CraterIterator.next)
-        # Arguments
-            x: 2D tensor, single input image.
-            y: 2D tensor, single output target.
-        # Returns
-            A randomly transformed version of the input and output (same shape).
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            3D tensor, single input image.
+        y : numpy.ndarray
+            2D tensor, single output target.
+
+        Returns
+        -------
+            Randomly transformed version of the input and output (same shape).
         """
         # x is a single image, so it doesn't have image number at index 0
         img_row_axis = self.row_axis - 1
         img_col_axis = self.col_axis - 1
         img_channel_axis = self.channel_axis - 1
-        
+
         # Use composition of homographies to generate final transform
         # that needs to be applied.  From ImageDataGenerator.random_transform
         if self.arbitrary_rotation_range:
-            theta = np.pi / 180 * np.random.uniform(-self.rotation_range,
-                                                    self.rotation_range)
+            theta = np.pi / 180 * np.random.uniform(
+                                        -self.arbitrary_rotation_range,
+                                        self.arbitrary_rotation_range)
         else:
             theta = 0
 
         if self.offset_range:
-            tx = np.random.uniform(-self.height_shift_range,
-                                   self.height_shift_range) * \
+            tx = np.random.uniform(-self.offset_range,
+                                   self.offset_range) * \
                                    x.shape[img_row_axis]
-            ty = np.random.uniform(-self.width_shift_range,
-                                   self.width_shift_range) * \
+            ty = np.random.uniform(-self.offset_range,
+                                   self.offset_range) * \
                                    x.shape[img_col_axis]
         else:
             tx = 0
             ty = 0
 
         if self.shear_range:
-            shear = np.random.uniform(-self.shear_range, self.shear_range)
+            shear = np.pi / 180. * np.random.uniform(-self.shear_range,
+                                                     self.shear_range)
         else:
             shear = 0
 
         if self.zoom_range[0] == 1 and self.zoom_range[1] == 1:
             zx, zy = 1, 1
         else:
-            zx, zy = np.random.uniform(self.zoom_range[0], 
-                                       self.zoom_range[1], 2)
+            # Set zx, zy to the same value so aspect ratio is unaltered.
+            zx, zy = [np.random.uniform(self.zoom_range[0],
+                                       self.zoom_range[1])] * 2
 
         transform_matrix = None
         if theta != 0:
@@ -246,7 +335,7 @@ class CraterImageGen(object):
                                         [np.sin(theta), np.cos(theta), 0],
                                         [0, 0, 1]])
             transform_matrix = rotation_matrix
-            
+
         if tx != 0 or ty != 0:
             shift_matrix = np.array([[1, 0, tx],
                                      [0, 1, ty],
@@ -271,29 +360,43 @@ class CraterImageGen(object):
         if transform_matrix is not None:
             xh, xw = x.shape[img_row_axis], x.shape[img_col_axis]
             yh, yw = y.shape[img_row_axis], y.shape[img_col_axis]
+            # To use kpimg.apply_transform, y must have a fake channel_axis.
+            # We make one here.  img_col_axis > img_channel_axis implies
+            # channels first.
+            if img_col_axis > img_channel_axis:
+                ytemp = y.reshape(1, *y.shape)
+            else:
+                ytemp = y.reshape(*y.shape, 1)
             x_transform_matrix = kpimg.transform_matrix_offset_center(
                     transform_matrix, xh, xw)
             y_transform_matrix = kpimg.transform_matrix_offset_center(
                     transform_matrix, yh, yw)
             x = kpimg.apply_transform(x, x_transform_matrix, img_channel_axis,
                                       fill_mode=self.fill_mode, cval=self.cval)
-            y = kpimg.apply_transform(y, y_transform_matrix, img_channel_axis,
-                                      fill_mode=self.fill_mode, cval=self.cval)
-            
+            ytemp = kpimg.apply_transform(ytemp, y_transform_matrix,
+                                          img_channel_axis,
+                                          fill_mode=self.fill_mode,
+                                          cval=self.cval)
+            # Apply changes back to y.
+            if img_col_axis > img_channel_axis:
+                y = ytemp[0].copy()
+            else:
+                y = ytemp[...,0].copy()
+
         if self.rotation:
             k_r = np.random.randint(0, 3)
             x = np.rot90(x, k=k_r)
             y = np.rot90(y, k=k_r)
-            
+
         if self.horizontal_flip:
             if np.random.random() < 0.5:
-                x = kpimg.fliplr(x, img_col_axis)
-                y = kpimg.fliplr(y, img_col_axis)
+                x = kpimg.flip_axis(x, img_col_axis)
+                y = kpimg.flip_axis(y, img_col_axis)
 
         if self.vertical_flip:
             if np.random.random() < 0.5:
-                x = kpimg.flipud(x, img_row_axis)
-                y = kpimg.flipud(y, img_row_axis)
+                x = kpimg.flip_axis(x, img_row_axis)
+                y = kpimg.flip_axis(y, img_row_axis)
 
         return x, y
 
@@ -329,7 +432,7 @@ class CraterIterator(kerasIterator):
             raise ValueError("X (images) and Y (targets) "
                              "should have the same length. "
                              "Found: X.shape = {0}, Y.shape = {1}".format(
-                             x.shape[0], y.shape[0]))
+                                     x.shape[0], y.shape[0]))
 
         if data_format is None:
             data_format = _img_dim_order
@@ -427,13 +530,13 @@ def run_model(in_args, verbose=True, out_csv=False):
                                         normalize=True)
 
     columnvals = ['Learn Rate', 'Batch', 'Epochs', 'N_train', 'Img Dim'] + \
-        list(in_args.hyper_table.columns))
+        list(in_args.hyper_table.columns)
     
     if out_csv:
         outcsv = open(in_args + ".csv", 'rw')
         outcsv.write(", ".join(columnvals))
 
-    for i in range(len(in_args.hyper_table):
+    for i in range(len(in_args.hyper_table)):
         hargs, test_score = train_test_model(Xtrain, Ytrain, Xtest, 
                                              Ytest, in_args, i)
         csvstr = in_args.get_csv_str(**hargs)
