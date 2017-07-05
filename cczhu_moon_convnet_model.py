@@ -306,15 +306,15 @@ class CraterImageGen(object):
             theta = 0
 
         if self.offset_range:
-            tx = np.random.uniform(-self.offset_range,
+            tmx = int(np.round(self.offset_range * x.shape[img_row_axis]))
+            tx = int(np.round(np.random.uniform(-self.offset_range,
                                    self.offset_range) * \
-                                   x.shape[img_row_axis]
-            ty = np.random.uniform(-self.offset_range,
+                                   x.shape[img_row_axis]))
+            ty = int(np.round(np.random.uniform(-self.offset_range,
                                    self.offset_range) * \
-                                   x.shape[img_col_axis]
+                                   x.shape[img_col_axis]))
         else:
-            tx = 0
-            ty = 0
+            tmx = 0
 
         if self.shear_range:
             shear = np.pi / 180. * np.random.uniform(-self.shear_range,
@@ -336,12 +336,16 @@ class CraterImageGen(object):
                                         [0, 0, 1]])
             transform_matrix = rotation_matrix
 
-        if tx != 0 or ty != 0:
-            shift_matrix = np.array([[1, 0, tx],
-                                     [0, 1, ty],
-                                     [0, 0, 1]])
-            transform_matrix = shift_matrix if transform_matrix is None \
-                else np.dot(transform_matrix, shift_matrix)
+#==============================================================================
+# This is three times as slow as np.pad.  Use matrix only for arbitrary 
+# rotation and shear!
+#         if tx != 0 or ty != 0:
+#             shift_matrix = np.array([[1, 0, tx],
+#                                      [0, 1, ty],
+#                                      [0, 0, 1]])
+#             transform_matrix = shift_matrix if transform_matrix is None \
+#                 else np.dot(transform_matrix, shift_matrix)
+#==============================================================================
 
         if shear != 0:
             shear_matrix = np.array([[1, -np.sin(shear), 0],
@@ -381,7 +385,22 @@ class CraterImageGen(object):
             if img_col_axis > img_channel_axis:
                 y = ytemp[0].copy()
             else:
-                y = ytemp[...,0].copy()
+                y = ytemp[..., 0].copy()
+
+        # Use np.pad to pad array, then offset using indices.  Based on Ari's
+        # custom_image_generator.
+        if tmx:
+            old_shp = x.shape[:2]
+            x = np.pad(x, ((tmx,), (tmx,), (0,)), self.fill_mode,
+                       constant_values=self.cval)[
+                                           tmx + tx:old_shp[0] + tmx + tx,
+                                           tmx + ty:old_shp[1] + tmx + ty,
+                                           :]
+            y = np.pad(y, (tmx,), self.fill_mode,
+                       constant_values=self.cval)[
+                                           tmx + tx:old_shp[0] + tmx + tx,
+                                           tmx + ty:old_shp[1] + tmx + ty]
+            assert x.shape[:2] == old_shp
 
         if self.rotation:
             k_r = np.random.randint(0, 3)
