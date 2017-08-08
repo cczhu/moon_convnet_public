@@ -40,3 +40,4 @@ Step 1 - On scinet, place the desired models in the models/ folder (by default m
 Step 2 - Set the other parameters and run the script rings_analyze_remote.py on scinet.  Note that the *rescale* and *inv_color* flags must be the same as during model training.  
 Step 3 - Copy the generated predictions (in the form of numpy arrays) to your local machine.  
 Step 4 - Open up rings_analyze_remote.ipynb and execute the cells to analyze the predictions locally.  
+
