@@ -41,3 +41,7 @@ Step 2 - Set the other parameters and run the script rings_analyze_remote.py on 
 Step 3 - Copy the generated predictions (in the form of numpy arrays) to your local machine.  
 Step 4 - Open up rings_analyze_remote.ipynb and execute the cells to analyze the predictions locally.  
 
+# Updated - to be merged later
+crater_distribution_extract.py extracts the crater distribution (radius only right now, coordinates to come), and requires lolaout_test.p, which can be found on scinet at /scratch/r/rein/silburt. lolaout_test.p must be put in the 'dir' directory (which is likely to be datasets/).
+
+moon_unet_s256_rings.py generates the most recent convnet model. 

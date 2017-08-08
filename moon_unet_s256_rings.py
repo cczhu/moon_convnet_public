@@ -70,9 +70,9 @@ def custom_image_generator(data, target, batch_size=32):
             d, t = data[i:i+batch_size].copy(), target[i:i+batch_size].copy() #most efficient for memory?
             
             #random color inversion
-            for j in np.where(np.random.randint(0,2,batch_size)==1)[0]:
-                d[j][d[j] > 0.] = 1. - d[j][d[j] > 0.]
-            
+#            for j in np.where(np.random.randint(0,2,batch_size)==1)[0]:
+#                d[j][d[j] > 0.] = 1. - d[j][d[j] > 0.]
+
             #horizontal/vertical flips
             for j in np.where(np.random.randint(0,2,batch_size)==1)[0]:
                 d[j], t[j] = np.fliplr(d[j]), np.fliplr(t[j])               #left/right
@@ -264,7 +264,7 @@ def train_and_test_model(X_train,Y_train,X_valid,Y_valid,X_test,Y_test,loss_data
         print ""
 
     if save_models == 1:
-        model.save('models/unet_s256_rings_invcolgen.h5')
+        model.save('models/unet_s256_rings.h5')
 
     return model.evaluate(X_test.astype('float32'), Y_test.astype('float32'))
 
@@ -353,7 +353,7 @@ if __name__ == '__main__':
     epochs = 6              #number of epochs. 1 epoch = forward/back pass through all train data
     n_train = 20000         #number of training samples, needs to be a multiple of batch size. Big memory hog.
     save_models = 1         #save models
-    inv_color = 0           #use inverse color
+    inv_color = 1           #use inverse color
     rescale = 1             #rescale images to increase contrast (still 0-1 normalized)
     
     #run models
