@@ -489,11 +489,14 @@ class CraterIterator(kerasIterator):
         # Keeps under lock only the mechanism which advances
         # the indexing of each batch.
         with self.lock:
-            index_array, current_index, current_batch_size = next(self.index_generator)
+            index_array, current_index, current_batch_size = next(
+                    self.index_generator)
         # The transformation of images is not under thread lock
         # so it can be done in parallel
-        batch_x = np.zeros(tuple([current_batch_size] + list(self.x.shape)[1:]), dtype=K.floatx())
-        batch_y = np.zeros(tuple([current_batch_size] + list(self.y.shape)[1:]), dtype=K.floatx())
+        batch_x = np.zeros(tuple([current_batch_size] +
+                                 list(self.x.shape)[1:]), dtype=K.floatx())
+        batch_y = np.zeros(tuple([current_batch_size] +
+                                 list(self.y.shape)[1:]), dtype=K.floatx())
         for i, j in enumerate(index_array):
             x = self.x[j]
             y = self.y[j]
